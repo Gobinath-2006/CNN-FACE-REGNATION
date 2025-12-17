@@ -2,58 +2,36 @@ import streamlit as st
 import numpy as np
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
-import gdown
-import os
+from PIL import Image
 
-MODEL_URL = "https://drive.google.com/uc?id=1rGhi1n9Hy3Wu-vJDVShDD77-ANFES03r"
-MODEL_PATH = "face_recognition_model.h5"
+# Load trained model
+model = load_model("face_recognition_augmented_3class.h5")
 
-CLASS_NAMES = ["Saravana Kumar", "Guru Nagajothi", "Gobinath"]
+# Class labels (same order as training)
+class_names = ['gobi', 'guru', 'sk']
 
-def load_cnn_model():
-    if not os.path.exists(MODEL_PATH):
-        gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
-    return load_model(MODEL_PATH)
-
-model = load_cnn_model()
-
-_, IMG_H, IMG_W, IMG_C = model.input_shape
-st.write("Detected model input shape:", model.input_shape)
-
-
-st.title("🧠 Face Recognition App")
+st.title("CNN Face Recognition App")
+st.write("Upload an image to predict the face")
 
 uploaded_file = st.file_uploader(
-    "Upload a face image",
-    type=["jpg", "jpeg", "png"]
+    "Choose an image", type=["jpg", "jpeg", "png"]
 )
 
 if uploaded_file is not None:
-    st.image(uploaded_file, use_container_width=True)
+    img = Image.open(uploaded_file).convert("RGB")
+    st.image(img, caption="Uploaded Image", use_column_width=True)
 
-    # Handle grayscale vs RGB automatically
-    color_mode = "rgb" if IMG_C == 3 else "grayscale"
-
-    img = image.load_img(
-        uploaded_file,
-        target_size=(IMG_H, IMG_W),
-        color_mode=color_mode
-    )
-
+    # Preprocess image
+    img = img.resize((128, 128))
     img_array = image.img_to_array(img)
-
-    if IMG_C == 1:
-        img_array = np.expand_dims(img_array, axis=-1)
-
     img_array = img_array / 255.0
     img_array = np.expand_dims(img_array, axis=0)
 
-    st.write("Image shape sent to model:", img_array.shape)
-
+    # Prediction
     prediction = model.predict(img_array)
-    class_index = np.argmax(prediction)
+    predicted_class = np.argmax(prediction)
     confidence = np.max(prediction) * 100
 
-    st.success(f"### Predicted Person: {CLASS_NAMES[class_index]}")
-    st.info(f"Confidence: {confidence:.2f}%")
-    st.write("Raw prediction:", prediction)
+    st.subheader("Prediction Result")
+    st.write(f"**Predicted Person:** {class_names[predicted_class]}")
+    st.write(f"**Confidence:** {confidence:.2f}%")
